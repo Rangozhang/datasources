@@ -12,8 +12,8 @@ datasource = AugmentDatasource(UCF101Datasource(params), {resize={224, 224}, rgb
 
 batch, label = datasource:nextBatch(8, 'train')
 print{batch}
-itorch.image({batch[1][1], batch[1][2], batch[2][1], batch[2][2]})
-io.read()
+-- itorch.image({batch[1][1], batch[1][2], batch[2][1], batch[2][2]})
+-- io.read()
 torch.setnumthreads(2)
 
 --[[
@@ -45,7 +45,7 @@ for i = 1, 10 do
 end
 print(timer:time())
 --]]
---[[
+-- --[[
 i = 0
 for batch, label in datasource:orderedIterator(16, 'test') do
    i = i + 1

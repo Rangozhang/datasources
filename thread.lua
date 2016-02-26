@@ -117,12 +117,12 @@ function ThreadedDatasource:orderedIterator(batchSize, set)
    self.started = false
    self.donkeys:addjob(
       1, function()
-	 collectgarbage()
-	 it_t = datasource_t:orderedIterator(batchSize, set) 
-	 end)
-   local finished = false
-   local function addjob()
-      self.donkeys:addjob(
+	        collectgarbage()
+	        it_t = datasource_t:orderedIterator(batchSize, set) 
+	        end)
+    local finished = false
+    local function addjob()
+    self.donkeys:addjob(
 	 1,
 	 function()
 	    return it_t()
@@ -141,11 +141,11 @@ function ThreadedDatasource:orderedIterator(batchSize, set)
    return function()
       self.donkeys:synchronize()
       if finished then
-	 self.donkeys:addjob(1, function() it_t = nil collectgarbage() end)
-	 self.donkeys:synchronize()
+	    self.donkeys:addjob(1, function() it_t = nil collectgarbage() end)
+	    self.donkeys:synchronize()
       else
-	 addjob()
-	 return self.output, self.labels
+	    addjob()
+	    return self.output, self.labels
       end
    end
 end

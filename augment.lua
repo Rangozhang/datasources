@@ -30,6 +30,7 @@ function AugmentDatasource:__init(datasource, params)
 	UsingResize = false
    end
 
+   -- resize can't be used together with crop
    self.params = {
       resize = params.resize or {self.h, self.w},
       mean = params.rgb_mean or {0, 0, 0}, -- RGB
@@ -186,11 +187,11 @@ function AugmentDatasource:nextBatch(batchSize, set)
    local input, target = self.datasource:nextBatch(batchSize, set)
    local height, width
    if UsingResize then
-   	height = self.params.resize[1]
+   	    height = self.params.resize[1]
         width =  self.params.resize[2]
    else 
-	height = self.params.crop[1]
-	width = self.params.crop[2]
+	    height = self.params.crop[1]
+	    width = self.params.crop[2]
    end
    if input:dim() == 4 then
           input2_out:resize(batchSize, input:size(2),
@@ -215,14 +216,38 @@ function AugmentDatasource:nextBatch(batchSize, set)
 end
 
 --This has NO data augmentation (you can't iterate over augmented data, it's infinite)
+local input3_out = torch.Tensor()
 function AugmentDatasource:orderedIterator(batchSize, set)
    local it = self.datasource:orderedIterator(batchSize, set)
    return function()
       local input, label = it()
       if input ~= nil then
-	 return self:typeResults(input, label)
+        local height, width
+   if UsingResize then
+   	    height = self.params.resize[1]
+        width =  self.params.resize[2]
+   else 
+	    height = self.params.crop[1]
+	    width = self.params.crop[2]
+   end
+   if input:dim() == 4 then
+          input3_out:resize(batchSize, input:size(2), height, width)
+   else
+	      input3_out:resize(batchSize, input:size(2), input:size(3), height, width)
+   end
+   for i = 1, batchSize do
+      local x = input[i]
+      x = scaleup(x, self.params.scaleup)
+      x = crop(x, self.params.crop[1], self.params.crop[2],
+	       self.params.cropMinimumMotion, self.params.cropMinimumMotionNTries)
+      x = subtractMean(x, self.params.mean)
+      x = RGBtoBGR(x, self.params.rgb2bgr)
+      if UsingResize then x = resize(x, self.params.resize) end
+      input3_out[i]:copy(x)
+   end
+	    return self:typeResults(input3_out, label)
       else
-	 return nil
+	    return nil
       end
    end
 end
