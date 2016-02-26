@@ -1,5 +1,6 @@
 package.path = "../../?.lua;" .. package.path
 require 'datasources.ucf101'
+require 'datasources.augment'
 require 'image'
 
 local params = {}
@@ -7,11 +8,11 @@ params.nInputFrames = 5
 params.datapath = '/home/yu/ws_torch/dataset/UCF101/videos'
 params.listpath = '/home/yu/ws_torch/dataset/UCF101/ucfTrainTestlist'
 
-datasource = UCF101Datasource(params)
+datasource = AugmentDatasource(UCF101Datasource(params), {crop={120, 120}})
 
 batch, label = datasource:nextBatch(8, 'train')
 print{batch}
--- itorch.image({batch[1][1], batch[1][2], batch[2][1], batch[2][2]})
+itorch.image({batch[1][1], batch[1][2], batch[2][1], batch[2][2]})
 io.read()
 torch.setnumthreads(2)
 
@@ -36,7 +37,7 @@ datasource = ThreadedDatasource(
       return AugmentDatasource(UCF101Datasource(params), {crop={32,32}, mean={123.68, 116.779, 103.939}, rgb2bgr=true})
    end, {nDonkeys=3})
 datasource:cuda()
--- --[[
+--[[
 timer = torch.Timer()
 for i = 1, 10 do
    batch, label = datasource:nextBatch(4, 'train')

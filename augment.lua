@@ -23,8 +23,15 @@ function AugmentDatasource:__init(datasource, params)
    if self.datasource.tensortype == 'torch.CudaTensor' then
       print("Warning: AugmentDatasource used with a cuda datasource. Might break")
    end
+  
+   if params.resize ~= nil then
+	UsingResize = true
+   else 
+	UsingResize = false
+   end
 
    self.params = {
+      resize = params.resize or {self.h, self.w},
       mean = params.rgb_mean or {0, 0, 0}, -- RGB
       rgb2bgr = params.rgb2bgr or false,
       flip = params.flip or 0, --1 for vflip, 2 for hflip, 3 for both
@@ -105,17 +112,17 @@ end
 local resize_out = torch.Tensor()
 local function resize(patch, size_, mode)
    mode = mode or 'bilinear'
-   local new_x = size_[1]
-   local new_y = size_[2]
+   local new_x = size_[2] -- w
+   local new_y = size_[1] -- h
    local dimy, dimx = dimxy(patch)
    local h, w = patch:size(dimy), patch:size(dimx)
    if (new_y == h) and (new_x == w) then
       return patch
    else
       if patch:dim() == 3 then
-	 scaleup_out:typeAs(patch):resize(patch:size(1), new_y, new_x)
+	 resize_out:typeAs(patch):resize(patch:size(1), new_y, new_x)
       else
-	 scaleup_out:typeAs(patch):resize(patch:size(1), patch:size(2), new_y, new_x)
+	 resize_out:typeAs(patch):resize(patch:size(1), patch:size(2), new_y, new_x)
       end
       return image.scale(flatten3d(resize_out), flatten3d(patch), mode)
    end
@@ -177,12 +184,20 @@ end
 local input2_out = torch.Tensor()
 function AugmentDatasource:nextBatch(batchSize, set)
    local input, target = self.datasource:nextBatch(batchSize, set)
+   local height, width
+   if UsingResize then
+   	height = self.params.resize[1]
+        width =  self.params.resize[2]
+   else 
+	height = self.params.crop[1]
+	width = self.params.crop[2]
+   end
    if input:dim() == 4 then
-      input2_out:resize(batchSize, input:size(2),
-			self.params.crop[1], self.params.crop[2])
+          input2_out:resize(batchSize, input:size(2),
+			height, width)
    else
-      input2_out:resize(batchSize, input:size(2), input:size(3),
-			self.params.crop[1], self.params.crop[2])      
+	  input2_out:resize(batchSize, input:size(2), input:size(3),
+			height, width)
    end
    for i = 1, batchSize do
       local x = input[i]
@@ -193,6 +208,7 @@ function AugmentDatasource:nextBatch(batchSize, set)
 	       self.params.cropMinimumMotion, self.params.cropMinimumMotionNTries)
       x = subtractMean(x, self.params.mean)
       x = RGBtoBGR(x, self.params.RGBtoBGR)
+      if UsingResize then x = resize(x, self.params.resize) end
       input2_out[i]:copy(x)
    end
    return self:typeResults(input2_out, target)
