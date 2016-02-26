@@ -8,7 +8,7 @@ params.nInputFrames = 5
 params.datapath = '/home/yu/ws_torch/dataset/UCF101/videos'
 params.listpath = '/home/yu/ws_torch/dataset/UCF101/ucfTrainTestlist'
 
-datasource = AugmentDatasource(UCF101Datasource(params), {crop={120, 120}})
+datasource = AugmentDatasource(UCF101Datasource(params), {resize={224, 224}, rgb2bgr=true})
 
 batch, label = datasource:nextBatch(8, 'train')
 print{batch}

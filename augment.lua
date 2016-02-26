@@ -207,7 +207,7 @@ function AugmentDatasource:nextBatch(batchSize, set)
       x = crop(x, self.params.crop[1], self.params.crop[2],
 	       self.params.cropMinimumMotion, self.params.cropMinimumMotionNTries)
       x = subtractMean(x, self.params.mean)
-      x = RGBtoBGR(x, self.params.RGBtoBGR)
+      x = RGBtoBGR(x, self.params.rgb2bgr)
       if UsingResize then x = resize(x, self.params.resize) end
       input2_out[i]:copy(x)
    end
