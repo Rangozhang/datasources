@@ -16,15 +16,17 @@ local UCF101Datasource, parent = torch.class('UCF101Datasource', 'ClassDatasourc
 function UCF101Datasource:__init(params)
    parent.__init(self)
    assert(params.nInputFrames ~= nil, "UCF101Dataset: must specify nInputFrames")
-   self.datapath = '/scratch/datasets/ucf101/UCF-101'
+   print(params)
+   self.datapath = params.datapath  -- '../../../dataset/UCF101/videos' 
+   self.listpath = params.listpath  -- '../../../dataset/UCF101/ucfTrainTestlist'
    local setfiles = {train = 'trainlist01.txt', test = 'testlist01.txt'}
    assert(paths.dirp(self.datapath), 'Path ' .. self.datapath .. ' does not exist')
    local classes = paths.dir(self.datapath)
    self.classes = {}
    self.sets = {train = {}, test = {}}
    for _, set in pairs{'train', 'test'} do
-      local f = io.open(paths.concat(self.datapath, setfiles[set]), 'r')
-      assert(f ~= nil, 'File ' .. paths.concat(self.datapath, setfiles[set]) .. ' not found.')
+      local f = io.open(paths.concat(self.listpath, setfiles[set]), 'r')
+      assert(f ~= nil, 'File ' .. paths.concat(self.listpath, setfiles[set]) .. ' not found.')
       for line in f:lines() do
 	 if string.byte(line:sub(-1,-1)) == 13 then
 	    --remove the windows carriage return
@@ -77,6 +79,7 @@ function UCF101Datasource:nextBatch(batchSize, set)
    self.output_cpu:resize(batchSize, self.nInputFrames, self.nChannels, self.h, self.w)
    self.labels_cpu:resize(batchSize)
    for i = 1, batchSize do
+      -- do until find a proper data for self.output_cpu[i]
       local done = false
       while not done do
 	 local iclass = torch.random(self.nClasses)
@@ -96,7 +99,11 @@ function UCF101Datasource:nextBatch(batchSize, set)
 	       for j = 1, self.nInputFrames do
 		  self.thffmpeg:next_frame(self.output_cpu[i][j])
 	       end
+ 	     if self.nInputFrames > 1 then
 	       done = self:testEnoughMotion(self.output_cpu[i][-2], self.output_cpu[i][-1])
+ 	     elseif self.nInputFrames == 1 then
+	       done = true
+  	     end
 	    end
 	 else
 	    print("can't open", i, threadid_t, filepath)
@@ -139,6 +146,7 @@ function UCF101Datasource:orderedIterator(batchSize, set)
 	       done = true
 	       frame_idx = frame_idx + self.nInputFrames
 	    end
+	    -- need to move to next video of may be next class
 	    if not goodvid then
 	       video_idx = video_idx + 1
 	       if video_idx > #self.sets[set][class] then
@@ -158,8 +166,9 @@ function UCF101Datasource:orderedIterator(batchSize, set)
    end
 end
 
+-- returns only one sample (the first frames) per video
+-- but it start every time from the first frame :(((
 function UCF101Datasource:orderedVideoIterator(batchSize, set)
-   --returns only one sample (the first frames) per video
    assert(batchSize ~= nil, 'nextBatch: must specify batchSize')
    assert(self.sets[set] ~= nil, 'Unknown set ' .. set)
    local class_idx = 1

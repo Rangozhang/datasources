@@ -58,6 +58,7 @@ function ThreadedDatasource:type(typ)
    end
 end
 
+-- basically, there would always be nDonkey threads fetching batches
 function ThreadedDatasource:nextBatch(batchSize, set)
    assert(batchSize ~= nil, 'nextBatch: must specify batchSize')
    assert(set ~= nil, 'nextBatch: must specify set')
@@ -66,9 +67,9 @@ function ThreadedDatasource:nextBatch(batchSize, set)
 	 function()
 	    collectgarbage()
 	    local batch, labels = datasource_t:nextBatch(batchSize, set)
-	    return batch, labels
+	    return batch, labels, threadid_t
 	 end,
-	 function(outputs, labels)
+	 function(outputs, labels, id)
 	    if self.output ~= nil then
 	       self.output:resize(outputs:size()):copy(outputs)
 	       self.labels:resize(labels:size()):copy(labels)
@@ -97,6 +98,11 @@ function ThreadedDatasource:nextBatch(batchSize, set)
    while (self.last_config[1] ~= batchSize) or (self.last_config[2] ~= set) do
       addjob()
       self.donkeys:dojob()
+      --[[
+	synchronize():
+	  while hasjob() do:
+		dojob()
+      --]]
    end
    return self.output, self.labels
 end

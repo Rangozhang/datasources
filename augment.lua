@@ -25,6 +25,8 @@ function AugmentDatasource:__init(datasource, params)
    end
 
    self.params = {
+      mean = params.rgb_mean or {0, 0, 0}, -- RGB
+      rgb2bgr = params.rgb2bgr or false,
       flip = params.flip or 0, --1 for vflip, 2 for hflip, 3 for both
       crop = params.crop or {self.h, self.w},
       scaleup = params.scaleup or 1,
@@ -100,6 +102,25 @@ local function crop(patch, hTarget, wTarget, minMotion, minMotionNTries)
    end
 end
 
+local resize_out = torch.Tensor()
+local function resize(patch, size_, mode)
+   mode = mode or 'bilinear'
+   local new_x = size_[1]
+   local new_y = size_[2]
+   local dimy, dimx = dimxy(patch)
+   local h, w = patch:size(dimy), patch:size(dimx)
+   if (new_y == h) and (new_x == w) then
+      return patch
+   else
+      if patch:dim() == 3 then
+	 scaleup_out:typeAs(patch):resize(patch:size(1), new_y, new_x)
+      else
+	 scaleup_out:typeAs(patch):resize(patch:size(1), patch:size(2), new_y, new_x)
+      end
+      return image.scale(flatten3d(resize_out), flatten3d(patch), mode)
+   end
+end
+
 local scaleup_out = torch.Tensor()
 local function scaleup(patch, maxscale, mode)
    mode = mode or 'bilinear'
@@ -134,6 +155,25 @@ local function rotate(patch, thetamax, mode)
    end
 end
 
+local function subtractMean(patch, mean)
+    if mean[1] == 0 and mean[2] == 0 and mean[3] == 0 then 
+	return patch
+    end
+    for i = 1,3 do
+	patch[{{},{i},{},{}}]:add(-mean[i])
+    end
+    return patch
+end
+
+local function RGBtoBGR(patch, rgb2bgr)
+    if rgb2bgr then
+    	local tmp = patch[{{},{1},{},{}}]:clone()
+	patch[{{},{1},{},{}}] = patch[{{},{3},{},{}}]
+	patch[{{},{3},{},{}}] = tmp
+    end
+    return patch
+end
+
 local input2_out = torch.Tensor()
 function AugmentDatasource:nextBatch(batchSize, set)
    local input, target = self.datasource:nextBatch(batchSize, set)
@@ -151,6 +191,8 @@ function AugmentDatasource:nextBatch(batchSize, set)
       x = scaleup(x, self.params.scaleup)
       x = crop(x, self.params.crop[1], self.params.crop[2],
 	       self.params.cropMinimumMotion, self.params.cropMinimumMotionNTries)
+      x = subtractMean(x, self.params.mean)
+      x = RGBtoBGR(x, self.params.RGBtoBGR)
       input2_out[i]:copy(x)
    end
    return self:typeResults(input2_out, target)
