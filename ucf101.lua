@@ -16,7 +16,7 @@ local UCF101Datasource, parent = torch.class('UCF101Datasource', 'ClassDatasourc
 function UCF101Datasource:__init(params)
    parent.__init(self)
    assert(params.nInputFrames ~= nil, "UCF101Dataset: must specify nInputFrames")
-   print(params)
+   -- print(params)
    self.datapath = params.datapath  -- '../../../dataset/UCF101/videos' 
    self.listpath = params.listpath  -- '../../../dataset/UCF101/ucfTrainTestlist'
    local setfiles = {train = 'trainlist01.txt', test = 'testlist01.txt'}
