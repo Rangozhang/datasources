@@ -99,9 +99,9 @@ function ThreadedDatasource:nextBatch(batchSize, set)
       addjob()
       self.donkeys:dojob()
       --[[
-	synchronize():
-	  while hasjob() do:
-		dojob()
+        synchronize():
+          while hasjob() do:
+            dojob()
       --]]
    end
    return self.output, self.labels

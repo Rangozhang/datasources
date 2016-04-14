@@ -52,6 +52,7 @@ for batch, label in datasource:orderedIterator(16, 'test') do
    print(i)
    print(#batch)
    print(#label)
+   io.read()
    if i == 100 then
       break
    end
