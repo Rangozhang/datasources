@@ -7,8 +7,8 @@
 require 'torch'
 require 'io'
 require 'paths'
---require 'thffmpeg'
-require 'ffmpeg'
+require 'thffmpeg'
+--require 'ffmpeg'
 require 'math'
 require 'datasources.datasource'
 
@@ -63,7 +63,7 @@ function UCF101Datasource:__init(params)
    assert((self.minimumMotion == nil) or (self.minimumMotion > 0))
    self.nChannels, self.nClasses = 3, 101
    self.h, self.w = 240, 320
-   --self.thffmpeg = THFFmpeg()
+   self.thffmpeg = THFFmpeg()
 end
 
 function UCF101Datasource:testEnoughMotion(frame1, frame2)
@@ -87,19 +87,21 @@ function UCF101Datasource:nextBatch(batchSize, set)
 	 local class = self.classes[iclass]
 	 local idx = torch.random(#self.sets[set][class])
 	 local filepath = paths.concat(self.datapath, class, self.sets[set][class][idx])
-	 local result = ffmpeg.Video{path=filepath, silent=true} --self.thffmpeg:open(filepath)
+	 --local result = ffmpeg.Video{path=filepath, silent=true} --self.thffmpeg:open(filepath)
+	 local result = self.thffmpeg:open(filepath)
 	 if result then
 	    if self.nbframes[filepath] == nil then
-	       self.nbframes[filepath] = #result[1] --self.thffmpeg:length()
+	       --self.nbframes[filepath] = #result[1]
+	       self.nbframes[filepath] = self.thffmpeg:length()
 	    end
 	    local nframes = self.nbframes[filepath]
 	    if nframes >= self.nInputFrames then
 	       self.labels_cpu[i] = iclass
 	       local istart = torch.random(nframes - self.nInputFrames + 1)
-	       --self.thffmpeg:seek(istart-1)
+	       self.thffmpeg:seek(istart-1)
 	       for j = 1, self.nInputFrames do
-              --self.thffmpeg:next_frame(self.output_cpu[i][j])
-              self.output_cpu[i][j] = result:get_frame(1, istart-1+j) --result[1][istart-1+j]
+              self.thffmpeg:next_frame(self.output_cpu[i][j])
+              --self.output_cpu[i][j] = result:get_frame(1, istart-1+j) --result[1][istart-1+j]
 	       end
  	     if self.nInputFrames > 1 then
 	       done = self:testEnoughMotion(self.output_cpu[i][-2], self.output_cpu[i][-1])
@@ -112,7 +114,7 @@ function UCF101Datasource:nextBatch(batchSize, set)
 	 end
       end
    end
-   --self.thffmpeg:close()
+   self.thffmpeg:close()
    self.output_cpu:mul(2/255):add(-1)
    return self:typeResults(self.output_cpu, self.labels_cpu)
 end
@@ -123,7 +125,7 @@ function UCF101Datasource:orderedIterator(batchSize, set)
    local class_idx = 1
    local video_idx = 1
    local frame_idx = 1
-   --local thffmpeg2 = THFFmpeg()
+   local thffmpeg2 = THFFmpeg()
    return function()
       self.output_cpu:resize(batchSize, self.nInputFrames, self.nChannels,
 			     self.h, self.w)
@@ -135,19 +137,19 @@ function UCF101Datasource:orderedIterator(batchSize, set)
 	    local filepath = paths.concat(self.datapath, class, self.sets[set][class][video_idx])
 	    local goodvid = true
 	    if frame_idx == 1 then
-	       --goodvid = thffmpeg2:open(filepath)
-           self.vid = ffmpeg.Video{path=filepath, silent=true}
-           if self.vid then goodvid = true end
+	       goodvid = thffmpeg2:open(filepath)
+           --self.vid = ffmpeg.Video{path=filepath, silent=true}
+           --if self.vid then goodvid = true end
 	    end
 	    if goodvid then
 	       self.labels_cpu[i] = class_idx
 	       for j = 1, self.nInputFrames do
-              --if not thffmpeg2:next_frame(self.output_cpu[i][j]) then
-              if frame_idx-1+j > #self.vid[1] then
+              if not thffmpeg2:next_frame(self.output_cpu[i][j]) then
+              --if frame_idx-1+j > #self.vid[1] then
                  done, goodvid = false, false
                  break
               end
-              self.output_cpu[i][j] = self.vid:get_frame(1, frame_idx-1+j)--[1][frame_idx-1+j]
+              --self.output_cpu[i][j] = self.vid:get_frame(1, frame_idx-1+j)--[1][frame_idx-1+j]
 	       end
 	       done = true
 	       frame_idx = frame_idx + self.nInputFrames
@@ -159,7 +161,7 @@ function UCF101Datasource:orderedIterator(batchSize, set)
 		  class_idx = class_idx + 1
 		  video_idx = 1
 		  if class_idx > self.nClasses then
-		     --thffmpeg2:close()
+		     thffmpeg2:close()
 		     return nil
 		  end
 	       end
@@ -179,7 +181,7 @@ function UCF101Datasource:orderedVideoIterator(batchSize, set)
    assert(self.sets[set] ~= nil, 'Unknown set ' .. set)
    local class_idx = 1
    local video_idx = 1
-   --local thffmpeg2 = THFFmpeg()
+   local thffmpeg2 = THFFmpeg()
    return function()
       self.output_cpu:resize(batchSize, self.nInputFrames, self.nChannels,
 			     self.h, self.w)
@@ -190,19 +192,19 @@ function UCF101Datasource:orderedVideoIterator(batchSize, set)
 	    done = true
 	    local class = self.classes[class_idx]
 	    local filepath = paths.concat(self.datapath, class, self.sets[set][class][video_idx])
-        local vid = ffmpeg.Video{path=filepath, silent=true}
-	    --if not thffmpeg2:open(filepath) then
-        if not vid then
+        --self.vid = ffmpeg.Video{path=filepath, silent=true}
+	    if not thffmpeg2:open(filepath) then
+        --if not self.vid then
 	       done = false
 	    else
 	       self.labels_cpu[i] = class_idx
 	       for j = 1, self.nInputFrames do
-              --if not thffmpeg2:next_frame(self.output_cpu[i][j]) then
-              if frame_idx-1+j > #vid[1] then
+              if not thffmpeg2:next_frame(self.output_cpu[i][j]) then
+              --if frame_idx-1+j > #self.vid[1] then
                  done = false
                  break
               end
-              self.output_cpu[i][j] = vid:get_frame(1, frame_idx-1+j)
+              --self.output_cpu[i][j] = self.vid:get_frame(1, frame_idx-1+j)
 	       end
 	    end
 	    video_idx = video_idx + 1
@@ -210,7 +212,7 @@ function UCF101Datasource:orderedVideoIterator(batchSize, set)
 	       class_idx = class_idx + 1
 	       video_idx = 1
 	       if class_idx > self.nClasses then
-		  --thffmpeg2:close()
+		   thffmpeg2:close()
 		  return nil
 	       end
 	    end
